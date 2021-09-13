@@ -1,0 +1,13 @@
+node_modules/
+dist/
+tmp/
+globals.css
+.next/
+.vscode/
+# Git related
+.git/
+.gitignore
+# Docker Related
+docker-compose.yml
+Dockerfile
+.dockerignore

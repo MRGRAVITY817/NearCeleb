@@ -1,0 +1,1 @@
+export {PricingPageTemplate} from './PricingPageTemplate/PricingPageTemplate'

@@ -1,0 +1,109 @@
+version: "3"
+
+networks:
+  nearceleb:
+    driver: bridge
+
+volumes:
+  pgdata:
+  outbuild:
+  letsencrypt:
+
+services:
+  db:
+    image: mrgravity817/nearceleb-db:base
+    container_name: nearceleb-db
+    build:
+      context: ./db
+      dockerfile: Dockerfile
+    ports:
+      - ${HOST}:${PSQL_PORT}:5432
+    environment:
+      POSTGRESQL_USERNAME: ${PSQL_USERNAME}
+      POSTGRESQL_PASSWORD: ${PSQL_PASSWORD}
+      POSTGRESQL_DATABASE: ${PSQL_DATABASE}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - nearceleb
+    restart: always
+  server:
+    image: mrgravity817/nearceleb-server:base
+    container_name: nearceleb-server
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+      target: runner
+      args:
+        NODE_ENV: "production"
+    ports:
+      - ${HOST}:${SERVER_PORT}:${SERVER_PORT}
+    environment:
+      PORT: ${SERVER_PORT}
+      NODE_ENV: "production"
+      # DB info
+      DB_NAME: ${PSQL_DATABASE}
+      DB_USERNAME: ${PSQL_USERNAME}
+      DB_PASSWORD: ${PSQL_PASSWORD}
+      DB_PORT: 5432
+      DB_HOST: ${PSQL_HOST}
+      PRIVATE_KEY: ${PRIVATE_KEY}
+      NAVER_ACCESS_KEY: ${NAVER_ACCESS_KEY}
+      NAVER_SECRET_KEY: ${NAVER_SECRET_KEY}
+      USER_INFO_BUCKET: ${USER_INFO_BUCKET}
+      CELEB_PAGE_BUCKET: ${CELEB_PAGE_BUCKET}
+      TREND_BUCKET: ${TREND_BUCKET}
+      GOOGLE_ID: ${GOOGLE_ID}
+      GOOGLE_SECRET: ${GOOGLE_SECRET}
+      GOOGLE_CALLBACK: ${GOOGLE_CALLBACK}
+      FACEBOOK_ID: ${FACEBOOK_ID}
+      FACEBOOK_SECRET: ${FACEBOOK_SECRET}
+      FACEBOOK_CALLBACK: ${FACEBOOK_CALLBACK}
+    networks:
+      - nearceleb
+    depends_on:
+      - db
+    restart: on-failure
+  # NextJS Client
+  client:
+    image: mrgravity817/nearceleb-client:base
+    container_name: nearceleb-client
+    environment:
+      GRAPHQL_HOST: server
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+      # target: runner
+    ports:
+      - ${HOST}:${CLIENT_PORT}:${CLIENT_PORT}
+    volumes:
+      - outbuild:/app/out
+    depends_on:
+      - server
+    networks:
+      - nearceleb
+    restart: on-failure
+  # Nginx
+  proxy:
+    image: mrgravity817/nearceleb-proxy:base
+    container_name: nearceleb-proxy
+    build:
+      context: ./proxy
+      dockerfile: Dockerfile
+    ports:
+      - ${HOST}:80:80/tcp
+      - ${HOST}:443:443/tcp
+    environment:
+      CERTBOT_EMAIL: ${CERTBOT_EMAIL}
+      # Variable names are space-separated
+      ENVSUBST_VARS: FQDN
+      FQDN: nearceleb.com
+    volumes:
+      - letsencrypt:/etc/letsencrypt
+      - outbuild:/usr/share/nginx/html
+    depends_on:
+      - client
+      - server
+    networks:
+      - nearceleb
+    restart: always

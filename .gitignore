@@ -1,0 +1,7 @@
+# Mac
+.DS_Store
+# Environment settings
+.env.dev
+.env.test
+.env.prod
+.env*
